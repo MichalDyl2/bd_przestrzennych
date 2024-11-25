@@ -1,0 +1,106 @@
+---nowy widok 'roznica'
+/*
+CREATE VIEW roznica AS 
+SELECT ST_Difference(t2018.wkb_geometry, t2019.wkb_geometry) AS diff
+FROM pliki_1 t2018
+INNER JOIN pliki t2019
+ON t2018.polygon_id = t2019.polygon_id
+WHERE ST_Difference(t2018.wkb_geometry, t2019.wkb_geometry) != 'POLYGON EMPTY';
+*/
+
+
+
+--sprawdzenie
+/*
+SELECT * FROM roznica LIMIT 10;
+*/
+
+
+
+/*
+CREATE VIEW ptd AS
+SELECT ST_Difference(poi2018.wkb_geometry, poi2019.wkb_geometry) AS diff, poi2019.type AS type
+FROM pliki_1 poi2018
+INNER JOIN pliki poi2019
+ON poi2018.polygon_id = poi2019.polygon_id
+WHERE NOT ST_IsEmpty(ST_Difference(poi2018.wkb_geometry, poi2019.wkb_geometry));
+*/
+
+
+
+--nowe POI
+/*
+SELECT DISTINCT ptd.type, COUNT(ptd.type) AS type_count 
+FROM roznica r
+JOIN ptd ON ST_Contains(ST_Buffer(r.diff, 500), ptd.diff) 
+GROUP BY ptd.type;
+*/
+
+
+
+
+/*
+CREATE TABLE ulice_rep (id integer, geom geometry);
+
+INSERT INTO ulice_rep
+SELECT ogc_fid, wkb_geometry FROM pliki;
+
+UPDATE ulice_rep 
+SET geom = ST_Transform(geom, 3068);
+*/
+
+
+
+--dodawanie punktow i analiza skrzyzowan
+/*
+CREATE TABLE input_points (id integer, geom geometry);
+
+INSERT INTO input_points (id, geom)
+VALUES (1, ST_SetSRID(ST_MakePoint(8.36093, 49.03174), 3068)),
+       (2, ST_SetSRID(ST_MakePoint(8.39876, 49.00644), 3068));
+*/
+
+
+
+
+/*
+UPDATE input_points SET geom = ST_Transform(geom, 4326);
+
+SELECT DISTINCT tksn.wkb_geometry 
+FROM pliki tksn 
+JOIN input_points ip 
+ON ST_Contains(ST_Buffer(ip.geom, 200), tksn.wkb_geometry);
+*/
+
+
+
+--liczba sklepow sportowych
+/*
+SELECT DISTINCT COUNT(poi.wkb_geometry) AS poi_count 
+FROM pliki poi 
+JOIN pliki parks 
+ON ST_Contains(ST_Buffer(parks.wkb_geometry, 300), poi.wkb_geometry) 
+WHERE poi.type = 'Sporting Goods Store' AND parks.type = 'Park';
+*/
+
+
+--mosty
+/*
+CREATE TABLE t2019_kar_bridges AS 
+SELECT ST_Intersection(a.wkb_geometry, b.wkb_geometry) AS geom
+FROM pliki a, pliki b
+WHERE a.type = 'Railway' AND b.type = 'Water Line'
+AND ST_Intersects(a.wkb_geometry, b.wkb_geometry);
+*/
+
+
+
+--weryfikacja wynikow
+SELECT * FROM roznica LIMIT 10;
+SELECT * FROM ulice_rep LIMIT 10;
+SELECT * FROM t2019_kar_bridges LIMIT 10;
+
+--dziala
+
+
+
