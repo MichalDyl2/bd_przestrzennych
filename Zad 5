@@ -1,0 +1,173 @@
+
+
+-- Zadanie 1 - stworzenie nowej bazy danych
+CREATE DATABASE cwiczenia_rozne;
+
+-- Stworzenie tabeli o innej nazwie oraz innych nazwach kolumn
+CREATE TABLE ksztalty (
+    opis VARCHAR,
+    identyfikator INT,
+    geometria GEOMETRY
+);
+
+-- Zadanie 1a
+INSERT INTO ksztalty VALUES (
+    'ksztalt1', 
+    1, 
+    ST_GeomFromText(
+        '
+        COMPOUNDCURVE(
+            LINESTRING(0 1, 1 1),
+            CIRCULARSTRING(1 1, 2 0, 3 1),
+            CIRCULARSTRING(3 1, 4 2, 5 1),
+            LINESTRING(5 1, 6 1)
+        )
+        ',
+        0
+    )
+);
+
+SELECT geometria FROM ksztalty WHERE identyfikator = 1;
+
+-- Zadanie 1b
+INSERT INTO ksztalty VALUES (
+    'ksztalt2',
+    2,
+    ST_GeomFromText(
+        '
+        GEOMETRYCOLLECTION(
+            COMPOUNDCURVE(
+                CIRCULARSTRING(11 2, 12 3, 13 2),
+                CIRCULARSTRING(13 2, 12 1, 11 2)
+            ),
+            COMPOUNDCURVE(
+                LINESTRING(10 6, 14 6),
+                CIRCULARSTRING(14 6, 16 4, 14 2),
+                CIRCULARSTRING(14 2, 12 0, 10 2),
+                LINESTRING(10 2, 10 6)
+            )
+        )
+        ',
+        0
+    )
+);
+
+SELECT geometria FROM ksztalty WHERE identyfikator = 2;
+
+-- Zadanie 1c
+INSERT INTO ksztalty VALUES (
+    'ksztalt3',
+    3,
+    ST_GeomFromText(
+        '
+        COMPOUNDCURVE(
+            LINESTRING(7 15, 10 17),
+            LINESTRING(10 17, 12 13),
+            LINESTRING(12 13, 7 15)
+        )
+        '
+    )
+);
+
+SELECT geometria FROM ksztalty WHERE identyfikator = 3;
+
+-- Zadanie 1d
+INSERT INTO ksztalty VALUES (
+    'ksztalt4',
+    4,
+    ST_GeomFromText(
+        '
+        COMPOUNDCURVE(
+            LINESTRING(20 20, 25 25),
+            LINESTRING(25 25, 27 24),
+            LINESTRING(27 24, 25 22),
+            LINESTRING(25 22, 26 21),
+            LINESTRING(26 21, 22 19),
+            LINESTRING(22 19, 20.5 19.5)
+        )
+        '
+    )
+);
+
+SELECT geometria FROM ksztalty WHERE identyfikator = 4;
+
+-- Zadanie 1e
+INSERT INTO ksztalty VALUES (
+    'ksztalt5',
+    5,
+    ST_GeomFromText(
+        '
+        GEOMETRYCOLLECTION(
+            POINT Z(30 30 59),
+            POINT Z(38 32 234)
+        )
+        '
+    )
+);
+
+SELECT geometria FROM ksztalty WHERE identyfikator = 5;
+
+-- Zadanie 1f
+INSERT INTO ksztalty VALUES (
+    'ksztalt6',
+    6,
+    ST_GeomFromText(
+        '
+        GEOMETRYCOLLECTION(
+            POINT(4 2),
+            LINESTRING(1 1, 3 2)
+        )
+        '
+    )
+);
+
+SELECT geometria FROM ksztalty WHERE identyfikator = 6;
+
+-- Szybki podgląd całej tabeli
+SELECT * FROM ksztalty;
+
+-- Zadanie 2 - obliczanie pola powierzchni bufora najkrótszej linii
+-- łączącej kształty 3 i 4, z promieniem 5
+SELECT ST_Area(
+    ST_Buffer(
+        ST_ShortestLine(
+            (SELECT geometria FROM ksztalty WHERE identyfikator = 3),
+            (SELECT geometria FROM ksztalty WHERE identyfikator = 4)
+        ),
+        5
+    )
+);
+
+-- Zadanie 3 - aktualizacja (zamiana) geometrii dla ksztaltu o ID 4
+UPDATE ksztalty
+SET geometria = ST_GeomFromText(
+    '
+    POLYGON((
+        20 20, 25 25, 27 24, 25 22, 26 21, 22 19, 20.5 19.5, 20 20
+    ))
+    '
+)
+WHERE identyfikator = 4;
+
+SELECT geometria FROM ksztalty WHERE identyfikator = 4;
+
+-- Zadanie 4 - tworzenie nowego kształtu (ID=7)
+-- jako unii kształtów o ID 3 i 4
+INSERT INTO ksztalty VALUES (
+    'ksztalt7',
+    7,
+    ST_Union(
+        (SELECT geometria FROM ksztalty WHERE identyfikator = 3),
+        (SELECT geometria FROM ksztalty WHERE identyfikator = 4)
+    )
+);
+
+SELECT geometria FROM ksztalty WHERE identyfikator = 7;
+
+-- Zadanie 5 - obliczanie pola powierzchni bufora (promień=5)
+-- dla tych geometrii, które nie zawierają łuków
+SELECT ST_Area(
+    ST_Buffer(geometria, 5)
+)
+FROM ksztalty
+WHERE NOT ST_HasArc(geometria);
