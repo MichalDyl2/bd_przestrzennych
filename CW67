@@ -1,0 +1,184 @@
+-- Przykłady
+
+ALTER SCHEMA schema_name RENAME TO my_schema;
+
+CREATE EXTENSION postgis_raster SCHEMA my_schema;
+
+CREATE TABLE my_schema.raster_intersects AS
+SELECT a.raster_data, b.region_name
+FROM raster_data.elevation AS a, vector_data.city_regions AS b
+WHERE ST_Intersects(a.raster_data, b.geometry) AND b.region_name ilike 'lisbon';
+
+ALTER TABLE my_schema.raster_intersects
+ADD COLUMN raster_id SERIAL PRIMARY KEY;
+
+CREATE INDEX idx_raster_intersects_gist 
+ON my_schema.raster_intersects
+USING gist(ST_ConvexHull(raster_data));
+
+SELECT AddRasterConstraints('my_schema'::name, 'raster_intersects'::name, 'raster_data'::name);
+
+CREATE TABLE my_schema.clipped_rasters AS
+SELECT ST_Clip(a.raster_data, b.geometry, true), b.region_name
+FROM raster_data.elevation AS a, vector_data.city_regions AS b
+WHERE ST_Intersects(a.raster_data, b.geometry) AND b.region_name like 'LISBON';
+
+CREATE TABLE my_schema.raster_union AS
+SELECT ST_Union(ST_Clip(a.raster_data, b.geometry, true))
+FROM raster_data.elevation AS a, vector_data.city_regions AS b
+WHERE b.region_name ilike 'lisbon' and ST_Intersects(b.geometry, a.raster_data);
+
+CREATE TABLE my_schema.city_regions_raster AS
+WITH reference_raster AS (
+	SELECT raster_data FROM raster_data.elevation LIMIT 1
+) SELECT ST_AsRaster(a.geometry, reference_raster.raster_data, '8BUI', a.id, -9999) 
+AS raster_data FROM vector_data.city_regions AS a, reference_raster
+WHERE a.region_name ilike 'lisbon';
+
+DROP TABLE my_schema.city_regions_raster;
+
+CREATE TABLE my_schema.city_regions_raster AS
+WITH reference_raster AS (
+	SELECT raster_data FROM raster_data.elevation
+	LIMIT 1
+) SELECT ST_Union(ST_AsRaster(a.geometry, reference_raster.raster_data, '8BUI', a.id, -9999)) AS raster_data
+FROM vector_data.city_regions AS a, reference_raster
+WHERE a.region_name ilike 'lisbon';
+
+DROP TABLE my_schema.city_regions_raster; 
+
+CREATE TABLE my_schema.city_regions_raster AS
+WITH reference_raster AS (
+SELECT raster_data FROM raster_data.elevation
+LIMIT 1 )
+SELECT ST_Tile(ST_Union(ST_AsRaster(a.geometry, reference_raster.raster_data, '8BUI', a.id, -9999)), 256, 256, true, -9999) AS raster_data
+FROM vector_data.city_regions AS a, reference_raster
+WHERE a.region_name ilike 'lisbon';
+
+CREATE TABLE my_schema.raster_intersection as
+SELECT a.raster_id, (ST_Intersection(b.geometry, a.raster_data)).geom, (ST_Intersection(b.geometry, a.raster_data)).val
+FROM raster_data.satellite_images AS a, vector_data.city_regions AS b
+WHERE b.subregion ILIKE 'bairro alto' and ST_Intersects(b.geometry, a.raster_data);
+
+CREATE TABLE my_schema.satellite_band4 AS
+SELECT raster_id, ST_Band(raster_data,4) AS raster_data
+FROM raster_data.satellite_images;
+
+CREATE TABLE my_schema.subregion_elevation AS
+SELECT a.raster_id, ST_Clip(a.raster_data, b.geometry,true) as raster_data
+FROM raster_data.elevation AS a, vector_data.city_regions AS b
+WHERE b.subregion ilike 'bairro alto' and ST_Intersects(b.geometry, a.raster_data);
+
+CREATE TABLE my_schema.subregion_slope AS
+SELECT a.raster_id, ST_Slope(a.raster_data,1,'32BF','PERCENTAGE') as raster_data
+FROM my_schema.subregion_elevation AS a;
+
+CREATE TABLE my_schema.slope_reclassified AS
+SELECT a.raster_id, ST_Reclass(a.raster_data,1,']0-15]:1, (15-30]:2, (30-9999:3', '32BF',0)
+FROM my_schema.subregion_slope AS a;
+
+SELECT ST_SummaryStats(a.raster_data) AS stats
+FROM my_schema.subregion_elevation AS a;
+
+SELECT ST_SummaryStats(ST_Union(a.raster_data))
+FROM my_schema.subregion_elevation AS a;
+
+WITH stats_table AS (
+	SELECT ST_SummaryStats(ST_Union(a.raster_data)) AS stats
+FROM my_schema.subregion_elevation AS a
+) SELECT (stats).min, (stats).max, (stats).mean FROM stats_table;
+
+WITH region_stats AS (
+	SELECT b.subregion AS subregion, ST_SummaryStats(ST_Union(ST_Clip(a.raster_data, b.geometry,true))) AS stats
+	FROM raster_data.elevation AS a, vector_data.city_regions AS b
+	WHERE b.region_name ilike 'lisbon' and ST_Intersects(b.geometry, a.raster_data)
+	GROUP BY b.subregion
+) SELECT subregion, (stats).min, (stats).max, (stats).mean FROM region_stats;
+
+SELECT b.location_name, ST_Value(a.raster_data, (ST_Dump(b.geometry)).geom)
+FROM raster_data.elevation a, vector_data.landmarks AS b
+WHERE ST_Intersects(a.raster_data, b.geometry) ORDER BY b.location_name;
+
+CREATE TABLE my_schema.topographic_index AS
+SELECT ST_TPI(a.raster_data, 1) AS raster_data
+FROM raster_data.elevation a;
+
+CREATE INDEX idx_topographic_index_gist ON my_schema.topographic_index
+USING gist (ST_ConvexHull(raster_data));
+
+SELECT AddRasterConstraints('my_schema'::name, 'topographic_index'::name,'raster_data'::name);
+
+-- Problem do samodzielnego rozwiazania
+-- Skrocenie czasu przetwarzania przez ograniczenie danych do mniejszych obszarów.
+
+CREATE TABLE my_schema.topographic_index_lisbon AS
+SELECT ST_TPI(a.raster_data, 1) as raster_data
+FROM raster_data.elevation AS a, vector_data.city_regions AS b
+WHERE ST_Intersects(a.raster_data, b.geometry) AND b.region_name ilike 'lisbon';
+
+CREATE INDEX idx_topographic_index_lisbon_gist ON my_schema.topographic_index_lisbon
+USING gist (ST_ConvexHull(raster_data));
+
+SELECT AddRasterConstraints('my_schema'::name, 'topographic_index_lisbon'::name,'raster_data'::name);
+
+CREATE TABLE my_schema.lisbon_ndvi AS
+WITH clipped_rasters AS (
+	SELECT a.raster_id, ST_Clip(a.raster_data, b.geometry,true) AS raster_data
+	FROM raster_data.satellite_images AS a, vector_data.city_regions AS b
+	WHERE b.region_name ilike 'lisbon' and ST_Intersects(b.geometry, a.raster_data)
+) SELECT
+	clipped_rasters.raster_id, ST_MapAlgebra(
+	clipped_rasters.raster_data, 1,
+	clipped_rasters.raster_data, 4,
+	'([rast2.val] - [rast1.val]) / ([rast2.val] + [rast1.val])::float','32BF'
+) AS raster_data FROM clipped_rasters;
+
+CREATE INDEX idx_lisbon_ndvi_gist 
+ON my_schema.lisbon_ndvi
+USING gist (ST_ConvexHull(raster_data));
+
+SELECT AddRasterConstraints('my_schema'::name, 'lisbon_ndvi'::name,'raster_data'::name);
+
+CREATE OR REPLACE FUNCTION my_schema.ndvi(
+	value double precision [] [] [],
+	pos integer [][],
+	VARIADIC userargs text []
+) RETURNS double precision AS
+$$
+BEGIN
+	RETURN (value [2][1][1] - value [1][1][1]) / (value [2][1][1] + value [1][1][1]); 
+END;
+$$
+LANGUAGE 'plpgsql' IMMUTABLE COST 1000;
+
+CREATE TABLE my_schema.lisbon_ndvi_function_based AS
+WITH clipped_rasters AS (
+	SELECT a.raster_id, ST_Clip(a.raster_data, b.geometry,true) AS raster_data
+	FROM raster_data.satellite_images AS a, vector_data.city_regions AS b
+	WHERE b.region_name ilike 'lisbon' and ST_Intersects(b.geometry, a.raster_data)
+) SELECT
+clipped_rasters.raster_id, ST_MapAlgebra(
+	clipped_rasters.raster_data, ARRAY[1,4],
+	'my_schema.ndvi(double precision[], integer[],text[])'::regprocedure, 
+	'32BF'::text
+) AS raster_data FROM clipped_rasters;
+
+CREATE INDEX idx_lisbon_ndvi_function_based_gist ON my_schema.lisbon_ndvi_function_based
+USING gist (ST_ConvexHull(raster_data));
+
+SELECT AddRasterConstraints('my_schema'::name, 'lisbon_ndvi_function_based'::name,'raster_data'::name);
+
+SELECT ST_AsTiff(ST_Union(raster_data))
+FROM my_schema.lisbon_ndvi;
+
+SELECT ST_AsGDALRaster(ST_Union(raster_data), 'GTiff', ARRAY['COMPRESS=DEFLATE', 'PREDICTOR=2', 'PZLEVEL=9'])
+FROM my_schema.lisbon_ndvi;
+
+CREATE TABLE temporary_output AS
+SELECT lo_from_bytea(0,
+	ST_AsGDALRaster(ST_Union(raster_data), 'GTiff', ARRAY['COMPRESS=DEFLATE', 'PREDICTOR=2', 'PZLEVEL=9'])
+) AS loid FROM my_schema.lisbon_ndvi;
+
+SELECT lo_export(loid, 'D:/cw67/myraster.tiff') FROM temporary_output;
+
+SELECT lo_unlink(loid) FROM temporary_output;
