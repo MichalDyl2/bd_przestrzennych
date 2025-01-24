@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+#! <PROJECT_CONFIG
+#    Command to execute this project:
+#        "C:\Tools\DataProcessor\processor.exe" C:\Workspace\GIS2024\Exercises\shapefile_tiff_to_postgis.fmw
+#          --Input_SHAPEFILE "\"$(WORK_DIR)maps\input\regions1.shp\" \"$(WORK_DIR)maps\input\regions2.shp\" \"$(WORK_DIR)maps\input\regions3.shp\" \"$(WORK_DIR)maps\input\coastal_lines.shp\" \"$(WORK_DIR)maps\input\municipal_boundaries.shp\" \"$(WORK_DIR)maps\input\districts.shp\" \"$(WORK_DIR)maps\input\watershed_lines.shp\" \"$(WORK_DIR)maps\input\local_regions.shp\""
+#          --Input_TIFF "\"$(WORK_DIR)rasters\elevation1.tif\" \"$(WORK_DIR)rasters\elevation2.tif\" \"$(WORK_DIR)rasters\terrain1.tif\" \"$(WORK_DIR)rasters\terrain2.tif\""
+#          --Output_POSTGIS "gis_database"
+#          --LAUNCH_VIEWER "YES"
+
+#!   A0_PREVIEW_IMAGE="data:image/png;base64,AAABAAAAIAAAAAAAAQAAAAAAAAABAAAAAA=="
+#!   APP_COMPATIBILITY="AUTO"
+#!   BEGIN_SCRIPTS=""
+#!   END_SCRIPTS=""
+#!   CATEGORY=""
+#!   DESCRIPTION="This workspace processes geospatial data."
+#!   DESTINATION="DB_OUTPUT"
+#!   LOG_FILE="process_log.txt"
+#!   FME_VERSION="2024.1.0"
+#!   SAVE_ON_EXECUTE="Yes"
+#! >
+#! <DATA_SOURCES>
+#! <SOURCE
+#!   IS_PRIMARY="true"
+#!   TYPE="READER"
+#!   FORMAT="SHP"
+#!   PATH="$(Input_SHAPEFILE)"
+#!   IDENTIFIER="SHP_READER"
+#!   COORDINATESYSTEM="WGS84"
+#!   ENABLED="true"
+#! />
+#! <SOURCE
+#!   IS_PRIMARY="true"
+#!   TYPE="READER"
+#!   FORMAT="TIFF"
+#!   PATH="$(Input_TIFF)"
+#!   IDENTIFIER="TIFF_READER"
+#!   ENABLED="true"
+#! />
+#! <DESTINATION
+#!   IS_PRIMARY="true"
+#!   TYPE="WRITER"
+#!   FORMAT="POSTGRES"
+#!   CONNECTION="$(Output_POSTGIS)"
+#!   IDENTIFIER="POSTGRES_WRITER"
+#!   ENABLED="true"
+#! />
+#! </DATA_SOURCES>
+#! <METADATA>
+#!   FME_BUILD="24802"
+#!   LAST_SAVE="2025-01-20T14:30:00"
+#!   GUID="abcd1234-5678-90ef-ghij-klmnopqrstuv"
+#!   PRIOR_GUID="wxyz0987-6543-21ba-cdef-ghijklmnopqr"
+#!   USAGE="Data conversion from SHP and TIFF to PostgreSQL."
+#! </METADATA>
+#! <GLOBAL_SETTINGS>
+#!   SHAPEFILE_PARAMETERS="CoordinateSystem=WGS84;Encoding=UTF-8"
+#!   TIFF_PARAMETERS="Compression=LZW;Pyramid=Yes"
+#!   POSTGIS_PARAMETERS="SRID=4326;CreateSpatialIndex=Yes"
+#!   ENABLE_LOGGING="Yes"
+#! </GLOBAL_SETTINGS>
