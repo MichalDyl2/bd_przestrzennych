@@ -1,0 +1,5 @@
+create table raster_data (spatial_data geometry);
+insert into raster_data 
+select st_collect(geometry) 
+from "Exports";
+select * from raster_data;
